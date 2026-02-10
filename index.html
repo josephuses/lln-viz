@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Law of Large Numbers with Epsilon</title>
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-bottom: 10px; color: #2c3e50; }
+        
+        .container {
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .description {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            line-height: 1.6;
+            width: 100%;
+            border-left: 5px solid #3498db;
+        }
+
+        .formula-box {
+            background-color: #f1f3f5;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+
+        label { font-size: 12px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; color: #7f8c8d; }
+        
+        select, button, input[type=range] {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 10px 20px;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #2980b9; }
+
+        .chart-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            position: relative;
+            width: 100%;
+            height: 450px;
+        }
+
+        .stats-panel {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .stat-value { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .stat-label { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
+
+        .axis text { font-size: 12px; fill: #7f8c8d; }
+        .axis line, .axis path { stroke: #bdc3c7; }
+
+        .epsilon-band {
+            fill: #e74c3c;
+            opacity: 0.15;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Law of Large Numbers & Epsilon</h1>
+    
+    <div class="description">
+        <p>
+            The Law of Large Numbers states that as \( n \) increases, the absolute difference between the observed proportion \( \bar{X}_n \) and the true probability \( p \) will eventually become less than any small number \( \epsilon \) (epsilon).
+        </p>
+        <div class="formula-box">
+            $$ |\bar{X}_n - p| < \epsilon $$
+            <small>The shaded red band represents the region \( p \pm \epsilon \). Watch how the blue line eventually stays inside this band.</small>
+        </div>
+        <p> 
+            That is,
+        </p>
+<div class="formula-box">
+            $$ \lim_{n \to \infty} P(|\bar{X}_n - \mu| < \epsilon) = 1 $$
+            <small>Essentially: As \( n \) gets huge, the average \( \bar{X}_n \) gets arbitrarily close to the true mean \( \mu \).</small>
+        </div>
+    </div>
+
+    <div class="stats-panel">
+        <div class="stat-card">
+            <div class="stat-value" id="nVal">0</div>
+            <div class="stat-label">Total Trials (n)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="pVal">0.000</div>
+            <div class="stat-label">Observed Proportion</div>
+        </div>
+         <div class="stat-card">
+            <div class="stat-value" id="epsVal">0.05</div>
+            <div class="stat-label">Epsilon (\(\epsilon\))</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Experiment</label>
+            <select id="probSelect">
+                <option value="0.5">Coin Flip (p=0.5)</option>
+                <option value="0.1666">Die Roll: 6 (p=0.167)</option>
+                <option value="0.05">Rare Event (p=0.05)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Epsilon (\(\epsilon\))</label>
+            <input type="range" id="epsilonSlider" min="0.01" max="0.2" step="0.01" value="0.05">
+        </div>
+
+        <div class="control-group">
+            <label>Speed</label>
+            <select id="speedSelect">
+                <option value="200">Slow</option>
+                <option value="50">Normal</option>
+                <option value="5">Fast</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Controls</label>
+            <div style="display: flex; gap: 10px;">
+                <button id="startBtn" onclick="toggleSim()">Start</button>
+                <button onclick="resetSim()" style="background-color: #95a5a6;">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-box" id="chart"></div>
+</div>
+
+<script>
+    // --- Configuration ---
+    const margin = {top: 20, right: 50, bottom: 50, left: 50};
+    const width = 860 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+
+    // --- State Variables ---
+    let trials = 0;
+    let successes = 0;
+    let data = [];
+    let timer = null;
+    let targetP = 0.5;
+    let epsilon = 0.05;
+    let xMax = 100;
+
+    // --- Setup SVG ---
+    const svg = d3.select("#chart").append("svg")
+        .attr("viewBox", `0 0 860 400`)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // --- Scales ---
+    const x = d3.scaleLinear().domain([1, xMax]).range([0, width]);
+    const y = d3.scaleLinear().domain([0, 1]).range([height, 0]);
+
+    // --- Axes ---
+    const xAxis = svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .attr("class", "axis")
+        .call(d3.axisBottom(x));
+
+    const yAxis = svg.append("g")
+        .attr("class", "axis")
+        .call(d3.axisLeft(y));
+
+    // --- Labels ---
+    svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height + 40)
+        .style("text-anchor", "middle")
+        .style("fill", "#7f8c8d")
+        .text("Number of Trials (n)");
+
+    svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -35)
+        .attr("x", -height / 2)
+        .style("text-anchor", "middle")
+        .style("fill", "#7f8c8d")
+        .text("Proportion of Successes");
+
+    // --- Epsilon Band (Shaded Region) ---
+    const epsilonBand = svg.append("rect")
+        .attr("class", "epsilon-band")
+        .attr("x", 0)
+        .attr("width", width)
+        .attr("y", y(targetP + epsilon))
+        .attr("height", y(targetP - epsilon) - y(targetP + epsilon));
+
+    // --- Theoretical Line ---
+    const theoryLine = svg.append("line")
+        .attr("stroke", "#e74c3c")
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", "5,5")
+        .attr("x1", 0).attr("x2", width)
+        .attr("y1", y(0.5)).attr("y2", y(0.5));
+
+    const theoryLabel = svg.append("text")
+        .attr("fill", "#e74c3c")
+        .attr("x", width - 10)
+        .attr("y", y(0.5) - 5)
+        .attr("text-anchor", "end")
+        .style("font-size", "12px")
+        .text("Theoretical (p=0.5)");
+
+    // --- Experimental Line ---
+    const path = svg.append("path")
+        .attr("fill", "none")
+        .attr("stroke", "#3498db")
+        .attr("stroke-width", 2.5)
+        .attr("d", "");
+
+    // --- Update Functions ---
+
+    function updateEpsilon() {
+        epsilon = parseFloat(document.getElementById("epsilonSlider").value);
+        document.getElementById("epsVal").innerText = epsilon.toFixed(2);
+        
+        // Update Band Position & Height
+        const yTop = y(targetP + epsilon);
+        const yBottom = y(targetP - epsilon);
+        
+        // Ensure we don't draw outside [0,1]
+        // Actually d3 scale handles domain clamping implicitly for display if we are careful, 
+        // but rect height needs calculation.
+        // Let's rely on y() mapping. 
+        // Note: y(0) is height (bottom), y(1) is 0 (top).
+        // So y(p+eps) is smaller value (higher on screen) than y(p-eps).
+        
+        epsilonBand.transition().duration(200)
+            .attr("y", yTop)
+            .attr("height", Math.abs(yBottom - yTop));
+    }
+
+    function updateChart() {
+        if (trials > xMax) {
+            xMax = trials * 1.5;
+            x.domain([1, xMax]);
+            xAxis.transition().duration(50).call(d3.axisBottom(x));
+        }
+
+        const lineGen = d3.line()
+            .x(d => x(d.n))
+            .y(d => y(d.p));
+
+        path.datum(data).attr("d", lineGen);
+    }
+
+    function step() {
+        if (trials >= 5000) { stopSim(); return; }
+
+        trials++;
+        if(Math.random() < targetP) successes++;
+        
+        data.push({n: trials, p: successes/trials});
+
+        document.getElementById("nVal").innerText = trials;
+        document.getElementById("pVal").innerText = (successes/trials).toFixed(4);
+
+        updateChart();
+    }
+
+    function toggleSim() {
+        if (timer) stopSim();
+        else startSim();
+    }
+
+    function startSim() {
+        document.getElementById("startBtn").innerText = "Pause";
+        document.getElementById("startBtn").style.backgroundColor = "#e67e22";
+        
+        targetP = parseFloat(document.getElementById("probSelect").value);
+        const speed = parseInt(document.getElementById("speedSelect").value);
+        
+        if (timer) clearInterval(timer);
+        timer = setInterval(step, speed);
+    }
+
+    function stopSim() {
+        clearInterval(timer);
+        timer = null;
+        document.getElementById("startBtn").innerText = "Resume";
+        document.getElementById("startBtn").style.backgroundColor = "#3498db";
+    }
+
+    function resetSim() {
+        stopSim();
+        trials = 0;
+        successes = 0;
+        data = [];
+        xMax = 100;
+
+        document.getElementById("nVal").innerText = "0";
+        document.getElementById("pVal").innerText = "0.000";
+        document.getElementById("startBtn").innerText = "Start";
+        document.getElementById("startBtn").style.backgroundColor = "#3498db";
+
+        x.domain([1, xMax]);
+        xAxis.call(d3.axisBottom(x));
+        path.attr("d", "");
+
+        targetP = parseFloat(document.getElementById("probSelect").value);
+        
+        // Update Lines & Band
+        theoryLine.transition().duration(500)
+            .attr("y1", y(targetP))
+            .attr("y2", y(targetP));
+            
+        theoryLabel.transition().duration(500)
+            .attr("y", y(targetP) - 5)
+            .text("Theoretical (p=" + targetP + ")");
+            
+        updateEpsilon(); // Re-draw band at new P
+    }
+
+    // Event Listeners
+    document.getElementById("epsilonSlider").addEventListener("input", updateEpsilon);
+    document.getElementById("probSelect").addEventListener("change", resetSim);
+
+    // Init
+    resetSim();
+
+</script>
+</body>
+</html>
